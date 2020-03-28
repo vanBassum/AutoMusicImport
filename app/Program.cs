@@ -5,19 +5,16 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using STDLib.Saveable;
-
+using Xabe.FFmpeg;
 
 namespace AutoMusicImport
 {
     class Program
     {
-        static string settingsFile = "settings.json";
+        
         static void Main(string[] args)
         {
-
-            CancellationTokenSource cts = new CancellationTokenSource();
-            Task task = new Task(Work, cts.Token);
-            task.Start();
+            Importer importer = new Importer();
             bool exitPending = false;
             while (!exitPending)
             {
@@ -36,22 +33,27 @@ namespace AutoMusicImport
                         break;
                 }
             }
-            cts.Cancel();
+            importer.Stop();
             Console.WriteLine("Bye");
         }
 
+        
+    }
 
+    public class Importer
+    {
+        string[] SupportedExtentions { get; } = { ".mp3", ".m4a", ".flac" };
+        static string settingsFile = "settings.json";
+        Settings settings = new Settings();
+        CancellationTokenSource cts = new CancellationTokenSource();
 
-        static void Work(object obj)
+        public Importer()
         {
-            CancellationToken token = (CancellationToken)obj;
-            Settings settings = new Settings();
+
             if (File.Exists(settingsFile))
                 settings.Load(settingsFile);
             else
                 settings.Save(settingsFile);
-
-            var ext = new List<string> { "mp3" };
 
             if (!Directory.Exists(settings.ImportFolder))
             {
@@ -65,90 +67,149 @@ namespace AutoMusicImport
                 return;
             }
 
+            Task task = new Task(() => Work(cts.Token));
+            task.Start();
+        }
+
+        public void Stop()
+        {
+            cts.Cancel();
+        }
+
+        
+
+
+        void ImportFile(string file)
+        {
+            string relPath = Path.GetRelativePath(settings.ImportFolder, file);
+            Console.WriteLine("Importing: " + relPath);
+            string title = Path.GetFileNameWithoutExtension(relPath);
+            string artist = Path.GetFileName(Path.GetDirectoryName(relPath));
+            string category = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(relPath)));
+
+            if (title != "" && artist != "")
+            {
+                string dest = Path.Combine(settings.MusicFolder, artist, title + ".mp3");
+                bool keepNewFile = false;
+
+                if (File.Exists(dest))
+                {
+                    long newFileLength = new System.IO.FileInfo(file).Length;
+                    long existingFileLength = new System.IO.FileInfo(dest).Length;
+                    keepNewFile = newFileLength > existingFileLength;
+                }
+                else
+                {
+                    if (!Directory.Exists(Path.GetDirectoryName(dest)))
+                        Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                    keepNewFile = true;
+                }
+
+
+                if (keepNewFile)
+                {
+                    File.Delete(dest);
+                    File.Move(file, dest);
+                }
+                else
+                {
+                    File.Delete(file);
+                }
+
+                string artistPath = Path.GetDirectoryName(file);
+
+                if (!Directory.EnumerateFileSystemEntries(artistPath).Any())
+                {
+                    try
+                    {
+                        Directory.Delete(artistPath);
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("coulnt remove " + artistPath);
+                    }
+                }
+
+                if (category != "")
+                {
+                    string catFile = Path.Combine(settings.PlaylistFolder, category);
+                    using (StreamWriter wrt = new StreamWriter(File.Open(catFile, FileMode.Append, FileAccess.Write)))
+                        wrt.WriteLine(relPath);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Can't determain artist or title");
+            }
+
+
+        }
+
+
+        string ChangeExtention(string file, string newExt)
+        {
+            file = file.Substring(0, file.LastIndexOf('.'));
+            return file + newExt;
+        }
+
+        bool TryConvert(string input, string output)
+        {
+            bool sucess = false;
+            try
+            {
+                string extention = Path.GetExtension(input);
+                if(SupportedExtentions.Contains(extention))
+                {
+                    IConversion conv = Conversion.Convert(input, output);
+                    conv.SetAudioBitrate("320k");
+                    conv.Start().Wait();
+                    sucess = true;
+                }
+            }
+            catch
+            {
+
+            }
+            return sucess;
+        }
+
+        void Work(CancellationToken token)
+        {
+
             while (!token.IsCancellationRequested)
             {
-                Thread.Sleep(1000);
+                Thread.Sleep(settings.ScanInterval);
                 var files = Directory.EnumerateFiles(settings.ImportFolder, "*.*", SearchOption.AllDirectories);
 
-                foreach (string file in files)
+                foreach (string sourceFile in files)
                 {
+                    string file = sourceFile;
                     if (token.IsCancellationRequested)
                         break;
 
-                    string relPath = Path.GetRelativePath(settings.ImportFolder, file);
-
-                    string title = Path.GetFileNameWithoutExtension(relPath);
-                    string artist = Path.GetFileName(Path.GetDirectoryName(relPath));
-                    string category = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(relPath)));
-
-                    Console.WriteLine(" + " + relPath);
-
-                    if (title != "" && artist != "")
+                    if (Path.GetExtension(file) != ".mp3")
                     {
-                        switch (Path.GetExtension(relPath))
+                        string output = ChangeExtention(file, ".mp3");
+
+                        if (TryConvert(file, output))
                         {
-                            case ".mp3":
-
-
-                                string dest = Path.Combine(settings.MusicFolder, artist, title + ".mp3");
-
-                                bool keepNewFile = false;
-
-
-
-                                if (File.Exists(dest))
-                                {
-                                    long newFileLength = new System.IO.FileInfo(file).Length;
-                                    long existingFileLength = new System.IO.FileInfo(dest).Length;
-                                    keepNewFile = newFileLength > existingFileLength;
-                                }
-                                else
-                                {
-                                    if (!Directory.Exists(Path.GetDirectoryName(dest)))
-                                        Directory.CreateDirectory(Path.GetDirectoryName(dest));
-                                    keepNewFile = true;
-                                }
-
-
-                                if (keepNewFile)
-                                {
-                                    File.Delete(dest);
-                                    File.Move(file, dest);
-                                }
-                                else
-                                {
-                                    File.Delete(file);
-                                }
-
-                                string artistPath = Path.GetDirectoryName(file);
-
-                                if (!Directory.EnumerateFileSystemEntries(artistPath).Any())
-                                {
-                                    Directory.Delete(artistPath);
-                                }
-
-                                if (category != "")
-                                {
-                                    string catFile = Path.Combine(settings.PlaylistFolder, category);
-                                    using (StreamWriter wrt = new StreamWriter(File.Open(catFile, FileMode.Append, FileAccess.Write)))
-                                        wrt.WriteLine(relPath);
-                                }
-                                break;
-
-                            default:
-                                Console.WriteLine("No support for '" + Path.GetExtension(relPath) + "' files!");
-                                break;
+                            File.Delete(file);
+                            file = output;
                         }
+                    }
+
+                    if (Path.GetExtension(file) == ".mp3")
+                    {
+                        ImportFile(file);
                     }
                     else
                     {
-                        Console.WriteLine("Can't determain artist or title");
+                        Console.WriteLine("No support for '" + Path.GetExtension(file) + "' files!");
                     }
                 }
             }
         }
     }
-
 
 
 

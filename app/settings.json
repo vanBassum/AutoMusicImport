@@ -1,0 +1,7 @@
+{
+  "$type": "AutoMusicImport.Settings, AutoMusicImport",
+  "ImportFolder": "/app/bin/Debug/netcoreapp3.1/Import",
+  "MusicFolder": "/app/bin/Debug/netcoreapp3.1/Music",
+  "PlaylistFolder": "/app/bin/Debug/netcoreapp3.1/Playlists",
+  "ScanInterval": 1000
+}

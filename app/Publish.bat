@@ -1,1 +1,1 @@
-dotnet publish -c Release
+docker save -o automusicimport.tar automusicimport
