@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using STDLib.Saveable;
 
+
 namespace AutoMusicImport
 {
     class Program
@@ -13,11 +14,30 @@ namespace AutoMusicImport
         static string settingsFile = "settings.json";
         static void Main(string[] args)
         {
+
             CancellationTokenSource cts = new CancellationTokenSource();
             Task task = new Task(Work, cts.Token);
             task.Start();
-            Console.ReadLine();
+            bool exitPending = false;
+            while (!exitPending)
+            {
+                string imput = Console.ReadLine();
+                string cmd = imput.Split(' ').First();
+
+                switch(cmd.ToLower())
+                {
+                    case "exit":
+                        exitPending = true;
+                        break;
+
+                    case "help":
+                    default:
+                        Console.WriteLine("exit     - exits the application");
+                        break;
+                }
+            }
             cts.Cancel();
+            Console.WriteLine("Bye");
         }
 
 
@@ -135,9 +155,9 @@ namespace AutoMusicImport
 
     public class Settings : SaveableSettings
     {
-        public string ImportFolder { get; set; } = "";
-        public string MusicFolder { get; set; } = "";
-        public string PlaylistFolder { get; set; } = "";
+        public string ImportFolder { get; set; } = "/mnt/Music/Import";
+        public string MusicFolder { get; set; } = "/mnt/Music/Music";
+        public string PlaylistFolder { get; set; } = "/mnt/Music/Playlists/Raw";
         public int ScanInterval { get; set; } = 1000;
 
     }

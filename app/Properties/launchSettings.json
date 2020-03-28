@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "AutoMusicImport": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}
