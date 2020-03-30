@@ -90,30 +90,29 @@ namespace AutoMusicImport
             if (title != "" && artist != "")
             {
                 string dest = Path.Combine(settings.MusicFolder, artist, title + ".mp3");
-                bool keepNewFile = false;
+                string existingFile = Directory.EnumerateFiles(Path.GetDirectoryName(dest)).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).ToLower() == title.ToLower());
 
-                if (File.Exists(dest))
+
+                if(existingFile != null)    //The file already exists!
                 {
                     long newFileLength = new System.IO.FileInfo(file).Length;
-                    long existingFileLength = new System.IO.FileInfo(dest).Length;
-                    keepNewFile = newFileLength > existingFileLength;
+                    long existingFileLength = new System.IO.FileInfo(existingFile).Length;
+
+                    if(newFileLength > existingFileLength)  //Keep new file
+                    {
+                        File.Delete(existingFile);
+                        File.Move(file, dest);
+                    }
+                    else                                    //Keep old file
+                    {
+                        File.Delete(file);
+                    }
                 }
-                else
+                else                                        //No file found, copy this one!
                 {
                     if (!Directory.Exists(Path.GetDirectoryName(dest)))
                         Directory.CreateDirectory(Path.GetDirectoryName(dest));
-                    keepNewFile = true;
-                }
-
-
-                if (keepNewFile)
-                {
-                    File.Delete(dest);
                     File.Move(file, dest);
-                }
-                else
-                {
-                    File.Delete(file);
                 }
 
                 string artistPath = Path.GetDirectoryName(file);
