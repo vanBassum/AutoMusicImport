@@ -122,7 +122,7 @@ namespace AutoMusicImport
                 {
                     try
                     {
-                        Directory.Delete(artistPath);
+                        Directory.Delete(artistPath, true);
                     }
                     catch (Exception)
                     {
