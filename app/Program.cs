@@ -90,7 +90,10 @@ namespace AutoMusicImport
             if (title != "" && artist != "")
             {
                 string dest = Path.Combine(settings.MusicFolder, artist, title + ".mp3");
-                string existingFile = Directory.EnumerateFiles(Path.GetDirectoryName(dest)).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).ToLower() == title.ToLower());
+                string existingFile = null;
+                
+                if(Directory.Exists(Path.GetDirectoryName(dest)))
+                    existingFile = Directory.EnumerateFiles(Path.GetDirectoryName(dest)).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f).ToLower() == title.ToLower());
 
 
                 if(existingFile != null)    //The file already exists!
