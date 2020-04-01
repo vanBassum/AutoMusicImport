@@ -207,6 +207,7 @@ namespace AutoMusicImport
                     else
                     {
                         Console.WriteLine("No support for '" + Path.GetExtension(file) + "' files!");
+                        File.Delete(file);
                     }
                 }
             }
