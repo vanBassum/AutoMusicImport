@@ -86,6 +86,7 @@ namespace AutoMusicImport
             string title = Path.GetFileNameWithoutExtension(relPath);
             string artist = Path.GetFileName(Path.GetDirectoryName(relPath));
             string category = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(relPath)));
+            TimeSpan duration = GetDuration(file);
 
             if (title != "" && artist != "")
             {
@@ -134,9 +135,30 @@ namespace AutoMusicImport
 
                 if (category != "")
                 {
-                    string catFile = Path.Combine(settings.PlaylistFolder, category);
+                    /*
+                    string catFile = Path.Combine(settings.PlaylistFolder, "Raw", category + ".txt");
+                    if (!Directory.Exists(Path.Combine(settings.PlaylistFolder, "Raw")))
+                        Directory.CreateDirectory(Path.Combine(settings.PlaylistFolder, "Raw"));
+
                     using (StreamWriter wrt = new StreamWriter(File.Open(catFile, FileMode.Append, FileAccess.Write)))
                         wrt.WriteLine(relPath);
+                    */
+
+                    string playlistFile = Path.Combine(settings.PlaylistFolder, category + ".m3u");
+                    bool newFile = !File.Exists(playlistFile);
+                    using (StreamWriter wrt = new StreamWriter(File.Open(playlistFile, FileMode.Append, FileAccess.Write)))
+                    {
+                        if (newFile)
+                            wrt.WriteLine("#EXTM3U");
+
+                        wrt.WriteLine("#EXTINF:{0},{1} - {2}", duration.TotalSeconds.ToString("#"), artist, title);
+
+                        string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(playlistFile), dest);
+
+                        wrt.WriteLine(relPlFile.Replace('\\', '/'));
+                    }
+                        
+
                 }
             }
             else
@@ -162,6 +184,7 @@ namespace AutoMusicImport
                 string extention = Path.GetExtension(input);
                 if(SupportedExtentions.Contains(extention))
                 {
+                    
                     IConversion conv = Conversion.Convert(input, output);
                     conv.SetAudioBitrate("320k");
                     conv.Start().Wait();
@@ -175,8 +198,78 @@ namespace AutoMusicImport
             return sucess;
         }
 
+        TimeSpan GetDuration(string file)
+        {
+            TimeSpan res = TimeSpan.Zero;
+            try
+            {
+                Task<IMediaInfo> t1 = MediaInfo.Get(file);
+                t1.Wait();
+                res = t1.Result.Duration;
+            }
+            catch
+            {
+
+            }
+            return res;
+        }
+
+
+        void RawConversion()
+        {
+            foreach (string file in Directory.GetFiles(Path.Combine(settings.PlaylistFolder, "Raw")))
+            {
+
+                using (StreamReader rdr = new StreamReader(file))
+                {
+                    string category = Path.GetFileNameWithoutExtension(file);
+
+                    string playlistFile = Path.Combine(settings.PlaylistFolder, category + ".m3u");
+                    using (StreamWriter wrt = new StreamWriter(File.Open(playlistFile, FileMode.Append, FileAccess.Write)))
+                    {
+
+                        wrt.WriteLine("#EXTM3U");
+
+                        while (!rdr.EndOfStream)
+                        {
+                            string mp3File = rdr.ReadLine();
+                            mp3File = Path.Combine(settings.MusicFolder, mp3File.Substring(mp3File.IndexOf('/')+1));
+
+
+
+                            string title = Path.GetFileNameWithoutExtension(mp3File);
+                            string artist = Path.GetFileName(Path.GetDirectoryName(mp3File));
+                            TimeSpan duration = GetDuration(mp3File);
+
+
+                            wrt.WriteLine("#EXTINF:{0},{1} - {2}", duration.TotalSeconds.ToString("#"), artist, title);
+
+                            string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(playlistFile), mp3File);
+
+                            wrt.WriteLine(relPlFile.Replace('\\', '/'));
+
+                        }
+
+
+
+
+                    }
+                }
+            }
+        }
+
+
         void Work(CancellationToken token)
         {
+            //first convert old raw playlists
+
+            RawConversion();
+            
+
+
+
+            //Now do the actual work
+
 
             while (!token.IsCancellationRequested)
             {
@@ -221,7 +314,7 @@ namespace AutoMusicImport
     {
         public string ImportFolder { get; set; } = "/mnt/Music/Import";
         public string MusicFolder { get; set; } = "/mnt/Music/Music";
-        public string PlaylistFolder { get; set; } = "/mnt/Music/Playlists/Raw";
+        public string PlaylistFolder { get; set; } = "/mnt/Music/Playlists";
         public int ScanInterval { get; set; } = 1000;
 
     }
