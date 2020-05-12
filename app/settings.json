@@ -3,5 +3,6 @@
   "ImportFolder": "/app/bin/Debug/netcoreapp3.1/Import",
   "MusicFolder": "/app/bin/Debug/netcoreapp3.1/Music",
   "PlaylistFolder": "/app/bin/Debug/netcoreapp3.1/Playlists",
+  "LowQualityFile":"/app/bin/Debug/netcoreapp3.1/Playlists/low.txt",
   "ScanInterval": 1000
 }
