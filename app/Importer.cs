@@ -1,4 +1,5 @@
-﻿using System;
+﻿using STDLib.Saveable;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -88,7 +89,7 @@ namespace AutoMusicImport
 
                 if(newFileAccepted)
                 {
-                    if(bitrate < 320000)
+                    if(bitrate < settings.GoodQuality)
                     {
                         using (StreamWriter wrt = new StreamWriter(File.Open(settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
                         {
@@ -164,7 +165,7 @@ namespace AutoMusicImport
             {
 
             }
-            return 0;
+            return -1;
         }
 
         string ChangeExtention(string file, string newExt)
@@ -209,7 +210,6 @@ namespace AutoMusicImport
             }
             return res;
         }
-        
 
         void Work(CancellationToken token)
         {
@@ -219,8 +219,26 @@ namespace AutoMusicImport
             while (!token.IsCancellationRequested)
             {
                 Thread.Sleep(settings.ScanInterval);
-                var files = Directory.EnumerateFiles(settings.ImportFolder, "*.*", SearchOption.AllDirectories);
 
+                if(!File.Exists(settings.LowQualityFile))
+                {
+                    using (StreamWriter wrt = new StreamWriter(File.Open(settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                    {
+
+                        foreach(string file in Directory.EnumerateFiles(settings.MusicFolder, "*.*", SearchOption.AllDirectories))
+                        {
+                            double bitrate = GetBitrate(file);
+                            if(bitrate > 0 && bitrate < settings.GoodQuality)
+                            {
+                                string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(settings.LowQualityFile), file);
+                                wrt.WriteLine(bitrate + "\t " + relPlFile);
+                            }
+                        }
+                    }
+                }
+
+
+                var files = Directory.EnumerateFiles(settings.ImportFolder, "*.*", SearchOption.AllDirectories);
                 foreach (string sourceFile in files)
                 {
                     string file = sourceFile;

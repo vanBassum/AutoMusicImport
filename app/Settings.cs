@@ -9,7 +9,7 @@ namespace AutoMusicImport
         public string PlaylistFolder { get; set; } = "/mnt/Music/Playlists";
         public int ScanInterval { get; set; } = 1000;
         public string LowQualityFile { get; set; } = "/mnt/Music/Playlists/LowQuality.txt";
-
+        public double GoodQuality { get; set; } = 320000;
 
     }
 }
