@@ -5,32 +5,27 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xabe.FFmpeg;
-using Xabe.FFmpeg.Streams;
 
 namespace AutoMusicImport
 {
     public class Importer
     {
         string[] SupportedExtentions { get; } = { ".mp3", ".m4a", ".flac" };
-        static string settingsFile = "settings.json";
-        Settings settings = new Settings();
-        CancellationTokenSource cts = new CancellationTokenSource();
+        readonly CancellationTokenSource cts = new CancellationTokenSource();
 
         public Importer()
         {
 
-            if (File.Exists(settingsFile))
-                settings.Load(settingsFile);
-            else
-                settings.Save(settingsFile);
+            Settings.Load(Settings.defaultSettingsFile);
 
-            if (!Directory.Exists(settings.ImportFolder))
+
+            if (!Directory.Exists(Settings.ImportFolder))
             {
                 Console.WriteLine("Import directory doenst exits");
                 return;
             }
 
-            if (!Directory.Exists(settings.MusicFolder))
+            if (!Directory.Exists(Settings.MusicFolder))
             {
                 Console.WriteLine("Music directory doenst exits");
                 return;
@@ -48,7 +43,7 @@ namespace AutoMusicImport
 
         void ImportFile(string file)
         {
-            string relPath = Path.GetRelativePath(settings.ImportFolder, file);
+            string relPath = Path.GetRelativePath(Settings.ImportFolder, file);
             Console.WriteLine("Importing: " + relPath);
             string title = Path.GetFileNameWithoutExtension(relPath);
             string artist = Path.GetFileName(Path.GetDirectoryName(relPath));
@@ -57,7 +52,7 @@ namespace AutoMusicImport
 
             if (title != "" && artist != "")
             {
-                string dest = Path.Combine(settings.MusicFolder, artist, title + ".mp3");
+                string dest = Path.Combine(Settings.MusicFolder, artist, title + ".mp3");
                 string existingFile = null;
                 bool newFileAccepted = false;
                 if(Directory.Exists(Path.GetDirectoryName(dest)))
@@ -89,11 +84,11 @@ namespace AutoMusicImport
 
                 if(newFileAccepted)
                 {
-                    if(bitrate < settings.GoodQuality)
+                    if(bitrate < Settings.GoodQuality)
                     {
-                        using (StreamWriter wrt = new StreamWriter(File.Open(settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                        using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
                         {
-                            string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(settings.LowQualityFile), dest);
+                            string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), dest);
                             wrt.WriteLine(bitrate + "\t " + relPlFile);
                         }
                     }
@@ -124,7 +119,7 @@ namespace AutoMusicImport
                         wrt.WriteLine(relPath);
                     */
 
-                    string playlistFile = Path.Combine(settings.PlaylistFolder, category + ".m3u");
+                    string playlistFile = Path.Combine(Settings.PlaylistFolder, category + ".m3u");
                     bool newFile = !File.Exists(playlistFile);
                     using (StreamWriter wrt = new StreamWriter(File.Open(playlistFile, FileMode.Append, FileAccess.Write)))
                     {
@@ -183,7 +178,7 @@ namespace AutoMusicImport
                 if(SupportedExtentions.Contains(extention))
                 {
                     IConversion conv = Conversion.Convert(input, output);
-                    conv.SetAudioBitrate("320k");
+                    conv.SetAudioBitrate(320000);
                     conv.Start().Wait();
                     sucess = true;
                 }
@@ -218,19 +213,19 @@ namespace AutoMusicImport
 
             while (!token.IsCancellationRequested)
             {
-                Thread.Sleep(settings.ScanInterval);
+                Thread.Sleep(Settings.ScanInterval);
 
-                if(!File.Exists(settings.LowQualityFile))
+                if(!File.Exists(Settings.LowQualityFile))
                 {
-                    using (StreamWriter wrt = new StreamWriter(File.Open(settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                    using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
                     {
 
-                        foreach(string file in Directory.EnumerateFiles(settings.MusicFolder, "*.*", SearchOption.AllDirectories))
+                        foreach(string file in Directory.EnumerateFiles(Settings.MusicFolder, "*.*", SearchOption.AllDirectories))
                         {
                             double bitrate = GetBitrate(file);
-                            if(bitrate > 0 && bitrate < settings.GoodQuality)
+                            if(bitrate > 0 && bitrate < Settings.GoodQuality)
                             {
-                                string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(settings.LowQualityFile), file);
+                                string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), file);
                                 wrt.WriteLine(bitrate + "\t " + relPlFile);
                             }
                         }
@@ -238,7 +233,7 @@ namespace AutoMusicImport
                 }
 
 
-                var files = Directory.EnumerateFiles(settings.ImportFolder, "*.*", SearchOption.AllDirectories);
+                var files = Directory.EnumerateFiles(Settings.ImportFolder, "*.*", SearchOption.AllDirectories);
                 foreach (string sourceFile in files)
                 {
                     string file = sourceFile;

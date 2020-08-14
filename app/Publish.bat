@@ -1,1 +1,0 @@
-docker save -o automusicimport.tar automusicimport:latest
