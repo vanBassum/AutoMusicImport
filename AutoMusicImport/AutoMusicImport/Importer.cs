@@ -15,9 +15,7 @@ namespace AutoMusicImport
 
         public Importer()
         {
-
-            Settings.Load(Settings.defaultSettingsFile);
-
+            Settings.Load(Settings.defaultSettingsFile, true);
 
             if (!Directory.Exists(Settings.ImportFolder))
             {
