@@ -48,6 +48,12 @@ namespace AutoMusicImport
             string category = Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(relPath)));
             double bitrate = GetBitrate(file);
 
+            if(bitrate == -1)
+            {
+                Console.WriteLine($"Couln't determain bitrate. {file}");
+                return;
+            }
+
             if (title != "" && artist != "")
             {
                 string dest = Path.Combine(Settings.MusicFolder, artist, title + ".mp3");
@@ -84,11 +90,16 @@ namespace AutoMusicImport
                 {
                     if(bitrate < Settings.GoodQuality)
                     {
-                        using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                        if (Directory.Exists(Path.GetDirectoryName(Settings.LowQualityFile)))
                         {
-                            string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), dest);
-                            wrt.WriteLine(bitrate + "\t " + relPlFile);
+                            using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                            {
+                                string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), dest);
+                                wrt.WriteLine(bitrate + "\t " + relPlFile);
+                            }
                         }
+                        else
+                            Console.WriteLine($"Couln't create lowQualityFile, Path not found {Path.GetDirectoryName(Settings.LowQualityFile)}");
                     }
                 }
 
@@ -130,8 +141,6 @@ namespace AutoMusicImport
 
                         wrt.WriteLine(relPlFile.Replace('\\', '/'));
                     }
-                        
-
                 }
             }
             else
@@ -154,9 +163,9 @@ namespace AutoMusicImport
                 if(stream != null)
                 return stream.Bitrate;
             }
-            catch
+            catch(Exception ex)
             {
-
+                Console.WriteLine(ex.Message);
             }
             return -1;
         }
@@ -211,25 +220,30 @@ namespace AutoMusicImport
 
             while (!token.IsCancellationRequested)
             {
-                Thread.Sleep(Settings.ScanInterval);
-
                 if(!File.Exists(Settings.LowQualityFile))
                 {
-                    using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
+                    Console.WriteLine($"Creating lowQualityFile {Settings.LowQualityFile}");
+                    if(Directory.Exists(Path.GetDirectoryName(Settings.LowQualityFile)))
                     {
-
-                        foreach(string file in Directory.EnumerateFiles(Settings.MusicFolder, "*.*", SearchOption.AllDirectories))
+                        using (StreamWriter wrt = new StreamWriter(File.Open(Settings.LowQualityFile, FileMode.Append, FileAccess.Write)))
                         {
-                            double bitrate = GetBitrate(file);
-                            if(bitrate > 0 && bitrate < Settings.GoodQuality)
+
+                            foreach (string file in Directory.EnumerateFiles(Settings.MusicFolder, "*.*", SearchOption.AllDirectories))
                             {
-                                string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), file);
-                                wrt.WriteLine(bitrate + "\t " + relPlFile);
+                                double bitrate = GetBitrate(file);
+                                if (bitrate > 0 && bitrate < Settings.GoodQuality)
+                                {
+                                    string relPlFile = Path.GetRelativePath(Path.GetDirectoryName(Settings.LowQualityFile), file);
+                                    wrt.WriteLine(bitrate + "\t " + relPlFile);
+                                }
                             }
                         }
+                        Console.WriteLine("lowQualityFile created");
                     }
+                    else
+                        Console.WriteLine($"Couln't create lowQualityFile, Path not found {Path.GetDirectoryName(Settings.LowQualityFile)}");
+                    
                 }
-
 
                 var files = Directory.EnumerateFiles(Settings.ImportFolder, "*.*", SearchOption.AllDirectories);
                 foreach (string sourceFile in files)
@@ -259,6 +273,8 @@ namespace AutoMusicImport
                         File.Delete(file);
                     }
                 }
+
+                Thread.Sleep(Settings.ScanInterval);
             }
         }
     }
